@@ -1,0 +1,8 @@
+{
+  "server": {
+    "baseDir": ["./src", "./build/contracts", "./node_modules"]
+  }, 
+  "node": {
+  "fs-extra": "empty"
+}
+}
