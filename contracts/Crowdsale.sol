@@ -1,46 +1,6 @@
 pragma solidity ^0.4.13;
 
-library SafeMath {
-  function mul(uint a, uint b) internal returns (uint) {
-    uint c = a * b;
-    assert(a == 0 || c / a == b);
-    return c;
-  }
-
-  function div(uint a, uint b) internal returns (uint) {
-    // assert(b > 0); // Solidity automatically throws when dividing by 0
-    uint c = a / b;
-    // assert(a == b * c + a % b); // There is no case in which this doesn't hold
-    return c;
-  }
-
-  function sub(uint a, uint b) internal returns (uint) {
-    assert(b <= a);
-    return a - b;
-  }
-
-  function add(uint a, uint b) internal returns (uint) {
-    uint c = a + b;
-    assert(c >= a);
-    return c;
-  }
-
-  function max64(uint64 a, uint64 b) internal constant returns (uint64) {
-    return a >= b ? a : b;
-  }
-
-  function min64(uint64 a, uint64 b) internal constant returns (uint64) {
-    return a < b ? a : b;
-  }
-
-  function max256(uint256 a, uint256 b) internal constant returns (uint256) {
-    return a >= b ? a : b;
-  }
-
-  function min256(uint256 a, uint256 b) internal constant returns (uint256) {
-    return a < b ? a : b;
-  }
-}
+import './ChozunCoin.sol';
 
 interface token {
     function transfer(address receiver, uint amount);
@@ -49,63 +9,100 @@ interface token {
 
 contract Crowdsale {
     address public beneficiary;
+    address master;
     uint public tokenBalance;
     uint public amountRaised;
     uint public deadline;
-    uint dollar_exchange;
-    uint test_factor;
+    uint dollarRate;
     uint start_time;
     uint price;
     token public tokenReward;
     mapping(address => uint256) public balanceOf;
     event FundTransfer(address backer, uint amount, bool isContribution);
+    address[] public contributors;
+    bool public paused;
+
+    address public contlength;  // Remove
+
+
+    modifier afterDeadline() { if (now >= deadline) _; }
+    modifier beforeDeadline() { if (now <= deadline) _; }
+    modifier isPaused() { if (paused == true) _; }
+    modifier notPaused() { if (paused == false) _; }
+    modifier isMaster() { if (msg.sender == master) _; }
+    
 
     /**
      * Constrctor function
      *
      * Setup the owner
      */
-    function Crowdsale() {
+    function Crowdsale(ChozunCoin _token) {
         tokenBalance = 5000000;  
-        beneficiary = 0xE418b86F4Be88D5fC42bEdaB4B1E32591c0B8fE6;   //CHANGE
+       // beneficiary = 0xe418b86f4be88d5fc42bedab4b1e32591c0b8fe6;   //CHANGE
+        beneficiary = 0xC5fdf4076b8F3A5357c5E395ab970B5B54098Fef;   //CHANGE
         start_time = now;
-        deadline = start_time + 15 * 1 minutes;     //CHANGE
-        dollar_exchange = 280;//CHANGE
-        tokenReward = token(0xDbfacBE6F911196a9E7EC5A22a8a64B43831423F);  //chozun coin address    //CHANGE
+        deadline = start_time + 10 * 1 minutes;     //CHANGE
+        dollarRate = 280;//CHANGE
+        // tokenReward = token(0x345ca3e014aaf5dca488057592ee47305d9b3e10);  //chozun coin address    //CHANGE
+        tokenReward = token(_token);  //chozun coin address   
+        master =  0xf17f52151EbEF6C7334FAD080c5704D77216b732;
+        paused = false;
     }
 
     /**
      * Fallback function
     **/
 
-    function () payable beforeDeadline {
+    function () payable beforeDeadline notPaused {
 
         uint amount = msg.value;
         balanceOf[msg.sender] += amount;
         amountRaised += amount;
-        test_factor = 10000;    //CHANGE
-        price = SafeMath.div(0.35 * 1 ether, dollar_exchange);
-        if (amount >= 37.5 ether /test_factor && amount < 83 ether /test_factor) {price = SafeMath.div(SafeMath.mul(100, price), 110);}  //CHANGE - remove test factor
-        if (amount >= 87.5 ether /test_factor && amount < 166 ether /test_factor) {price = SafeMath.div(SafeMath.mul(100, price), 115);}  //CHANGE - remove test factor
-        if (amount >= 175 ether /test_factor) {price = SafeMath.div(SafeMath.mul(100, price), 120);}//CHANGE - remove test factor
-        price = SafeMath.div(price, test_factor); // for testing    //CHANGE - remove test factor
+        price = SafeMath.div(0.35 * 1 ether, dollarRate);
+        if (amount >= 37.5 ether && amount < 83 ether) {price = SafeMath.div(SafeMath.mul(100, price), 110);}  
+        if (amount >= 87.5 ether && amount < 166 ether) {price = SafeMath.div(SafeMath.mul(100, price), 115);} 
+        if (amount >= 175 ether) {price = SafeMath.div(SafeMath.mul(100, price), 120);}
         tokenBalance = SafeMath.sub(tokenBalance, SafeMath.div(amount, price));
         if (tokenBalance < 0 ) { revert(); }
-        tokenReward.transfer(msg.sender, SafeMath.div(amount * 1 ether, price));
-        FundTransfer(msg.sender, amount, true);
+        // tokenReward.transfer(msg.sender, SafeMath.div(amount * 1 ether, price));
+        // FundTransfer(msg.sender, amount, true);
+        contributors.push(msg.sender);
+        contlength = contributors[0]; // Remove after testing
+        // contlength = msg.sender;
         
     }
 
-    modifier afterDeadline() { if (now >= deadline) _; }
-    modifier beforeDeadline() { if (now <= deadline) _; }
+    function tokenPayout() afterDeadline isMaster {
 
-    function safeWithdrawal() afterDeadline {
+      price = SafeMath.div(0.35 * 1 ether, dollar_exchange);
+      for (uint i=0; i<contributors.length; i++) {  
+          tokenReward.transfer(contributors[i], SafeMath.div(balanceOf[contributors[i]] * 1 ether, price));
+          FundTransfer(contributors[i], balanceOf[contributors[i]], true);
+      }
+      tokenReward.transfer(beneficiary, tokenReward.balanceOf(this));
+      tokenBalance = 0;
 
-        if (beneficiary.send(amountRaised)) {
-            FundTransfer(beneficiary, amountRaised, false);
-            tokenReward.transfer(beneficiary, tokenReward.balanceOf(this));
-            tokenBalance = 0;
-        }
+    }
+
+    function safeWithdrawal() afterDeadline isMaster {
+
+      if (beneficiary.send(amountRaised)) {
+          FundTransfer(beneficiary, amountRaised, false);
+      }
+    }
+
+    function pause() notPaused isMaster {
+      paused = true;
+    }
+
+    function unPause() isPaused isMaster {
+      paused = false;
+    }
+
+    function updateDollarRate(_dollarRate) isMaster {
+        dollarRate = _dollarRate
+
     }
 }
 
