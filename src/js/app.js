@@ -155,8 +155,10 @@ App = {
     App.contracts.Crowdsale.deployed().then(function(instance) {
         CrowdsaleInstance = instance;
         // return CrowdsaleInstance.tokenBalance.call();
-        return CrowdsaleInstance.balanceOf.call(App.fourthAccount);
-        // return CrowdsaleInstance.tokenReward.call();
+        // return CrowdsaleInstance.offChainTokens.call();   
+        return CrowdsaleInstance.dollarRate.call();   
+        // return CrowdsaleInstance.balanceOf.call(App.fourthAccount);
+        // return CrowdsaleInstance.dollarRate.call();
         // return CrowdsaleInstance.contlength.call();
         // return CrowdsaleInstance.beneficiary.call();
         // return CrowdsaleInstance.paused.call();
@@ -170,9 +172,9 @@ App = {
   },
 
   sendEther: function(){
-    var send = web3.eth.sendTransaction({from:App.masterAccount, to:App.contracts.Crowdsale.address, value:web3.toWei(1, "ether"), gas: 4712388});
-    var send = web3.eth.sendTransaction({from:App.thirdAccount, to:App.contracts.Crowdsale.address, value:web3.toWei(1, "ether"), gas: 4712388});
-    var send = web3.eth.sendTransaction({from:App.fourthAccount, to:App.contracts.Crowdsale.address, value:web3.toWei(2, "ether"), gas: 4712388});
+    // var send = web3.eth.sendTransaction({from:App.masterAccount, to:App.contracts.Crowdsale.address, value:web3.toWei(1, "ether"), gas: 4712388});
+    // var send = web3.eth.sendTransaction({from:App.thirdAccount, to:App.contracts.Crowdsale.address, value:web3.toWei(1, "ether"), gas: 4712388});
+    var send = web3.eth.sendTransaction({from:App.fourthAccount, to:App.contracts.Crowdsale.address, value:web3.toWei(5, "ether"), gas: 4712388});
   },
 
   callWithdraw: function(){
@@ -349,15 +351,100 @@ App = {
 
   },
 
+  updateExchangeRate: function(){
+
+    App.contracts.Crowdsale.deployed().then(function(instance) {
+        CrowdsaleInstance = instance;
+        var count = web3.eth.getTransactionCount(App.masterAccount);
+        //////////*****DANGER USING SYNCHRONOUS CALL HERE???
+        var privateKey = EthJS.Buffer.Buffer(App.masterPrivateKey, 'hex');    // Testrpc
+        contractData = CrowdsaleInstance.contract.updateDollarRate.getData(30000, {from: App.masterAccount})
+        var rawTransaction = {
+            "nonce": web3.toHex(count),
+            "gasPrice": "100",
+            "gasLimit": "205",
+            "to": App.contracts.Crowdsale.address,
+            "value": "0x0",
+            "data": contractData,
+            "chainId": 0x03
+        };
+        // console.log(privateKey)
+        var tx = new EthJS.Tx(rawTransaction);
+        tx.sign(privateKey)
+        let serializedTx = tx.serialize().toString('hex')
+        console.log('serializedTx:', serializedTx)
+        web3.eth.sendRawTransaction('0x' + serializedTx.toString('hex'), function(err, hash) {
+          if (!err){
+              console.log("Transaction hash: " + hash);
+              console.log("Waiting for transaction to be mined")
+              web3.eth.getTransactionReceipt(hash, function(err, hash) {
+                if (!err){
+                  console.log("Transaction mined: " + hash)
+                  console.log(hash)
+                }else
+                  console.log(err)
+              });
+          }else{
+              console.log(err);
+          }
+        });
+
+    });
+
+  },
+
+  updateOffChainTokens: function(){
+
+    App.contracts.Crowdsale.deployed().then(function(instance) {
+        CrowdsaleInstance = instance;
+        var count = web3.eth.getTransactionCount(App.masterAccount);
+        //////////*****DANGER USING SYNCHRONOUS CALL HERE???
+        var privateKey = EthJS.Buffer.Buffer(App.masterPrivateKey, 'hex');    // Testrpc
+        contractData = CrowdsaleInstance.contract.updateOffChainTokens.getData(-5000, {from: App.masterAccount})
+        var rawTransaction = {
+            "nonce": web3.toHex(count),
+            "gasPrice": "100",
+            "gasLimit": "205",
+            "to": App.contracts.Crowdsale.address,
+            "value": "0x0",
+            "data": contractData,
+            "chainId": 0x03
+        };
+        // console.log(privateKey)
+        var tx = new EthJS.Tx(rawTransaction);
+        tx.sign(privateKey)
+        let serializedTx = tx.serialize().toString('hex')
+        console.log('serializedTx:', serializedTx)
+        web3.eth.sendRawTransaction('0x' + serializedTx.toString('hex'), function(err, hash) {
+          if (!err){
+              console.log("Transaction hash: " + hash);
+              console.log("Waiting for transaction to be mined")
+              web3.eth.getTransactionReceipt(hash, function(err, hash) {
+                if (!err){
+                  console.log("Transaction mined: " + hash)
+                  console.log(hash)
+                }else
+                  console.log(err)
+              });
+          }else{
+              console.log(err);
+          }
+        });
+
+    });
+
+  },
+
 
   findBalance: function(){
 
     console.log("balance")
     App.contracts.Coin.deployed().then(function(instance) {
         CoinInstance = instance;
-        // return CoinInstance.balanceOf(App.contracts.Crowdsale.address, {from: App.deployAccount});
+
         // return CoinInstance.balanceOf(App.deployAccount, {from: App.deployAccount});
         return CoinInstance.balanceOf(App.fourthAccount, {from: App.deployAccount});
+        // return CoinInstance.balanceOf(App.contracts.Crowdsale.address, {from: App.deployAccount});
         }).then(function(result) {
           console.log(result)  
         }).catch(function(err) {
